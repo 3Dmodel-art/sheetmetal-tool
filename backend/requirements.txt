@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+cadquery
+ezdxf
+reportlab
+python-multipart
