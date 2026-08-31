@@ -2,78 +2,92 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Podium Sheet Metal Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sheet Metal Podium Engine</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f6f8; }
-        .card { background: #fff; padding: 20px; max-width: 450px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .field { margin-bottom: 12px; }
-        label { display: block; font-weight: bold; margin-bottom: 4px; font-size: 13px; }
-        input { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #0066cc; color: #fff; border: none; padding: 12px; width: 100%; font-size: 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #0052a3; }
-        #result { margin-top: 15px; padding: 12px; background: #eef7ee; border: 1px solid #c3e6cb; border-radius: 4px; display: none; }
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f6f9; }
+        .card { max-width: 500px; margin: auto; padding: 25px; background: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; margin-bottom: 20px; }
+        label { display: block; margin-top: 12px; font-weight: bold; color: #555; }
+        input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; margin-top: 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 4px; display: none; text-align: center; }
+        .dl-btn { display: inline-block; margin-top: 10px; padding: 10px 15px; background-color: #28a745; color: white; text-decoration: none; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Sheet Metal Podium Tool</h2>
-    
-    <div class="field">
-        <label>Podium Outer Length (mm):</label>
-        <input type="number" id="length" value="600">
-    </div>
-    <div class="field">
-        <label>Podium Outer Width (mm):</label>
-        <input type="number" id="width" value="400">
-    </div>
-    <div class="field">
-        <label>Podium Height (mm):</label>
-        <input type="number" id="height" value="1000">
-    </div>
-    <div class="field">
-        <label>Material Thickness (mm):</label>
-        <input type="number" id="thickness" value="1.5" step="0.1">
-    </div>
-    <div class="field">
-        <label>1st Bend - Wall Height (mm):</label>
-        <input type="number" id="bend1" value="80">
-    </div>
-    <div class="field">
-        <label>2nd Bend - Top Lip Width (mm):</label>
-        <input type="number" id="bend2" value="30">
-    </div>
+    <h2>Sheet Metal Podium Engine</h2>
+    <form id="cadForm">
+        <label>Overall Length (L) [mm]:</label>
+        <input type="number" id="length" value="300" required>
 
-    <button onclick="generateFiles()">Generate CAD & Blueprint</button>
+        <label>Overall Width (W) [mm]:</label>
+        <input type="number" id="width" value="200" required>
 
-    <div id="result">
-        <strong>Required Blank Size:</strong> <span id="blank_size"></span><br><br>
-        <a id="download_link" href="#" style="background:#28a745; color:#fff; padding:8px 12px; text-decoration:none; border-radius:4px; font-weight:bold; display:inline-block;" download>Download Package (.ZIP)</a>
+        <label>Overall Height/Depth (H) [mm]:</label>
+        <input type="number" id="height" value="150" required>
+
+        <label>Sheet Thickness (t) [mm]:</label>
+        <input type="number" step="0.1" id="thickness" value="2.0" required>
+
+        <label>Flange 1 (F1 - Primary Bend) [mm]:</label>
+        <input type="number" id="bend1" value="25" required>
+
+        <label>Flange 2 (F2 - Return Lip) [mm]:</label>
+        <input type="number" id="bend2" value="20" required>
+
+        <button type="submit" id="submitBtn">Generate CAD & Blueprint</button>
+    </form>
+
+    <div class="result" id="resultBox">
+        <p><strong>Calculated Flat Size:</strong> <span id="flatSizeText"></span></p>
+        <a id="downloadBtn" class="dl-btn" href="#" target="_blank">Download Complete Package (.ZIP)</a>
     </div>
 </div>
 
 <script>
-async function generateFiles() {
-    const data = {
-        length: parseFloat(document.getElementById('length').value),
-        width: parseFloat(document.getElementById('width').value),
-        height: parseFloat(document.getElementById('height').value),
-        thickness: parseFloat(document.getElementById('thickness').value),
-        bend1: parseFloat(document.getElementById('bend1').value),
-        bend2: parseFloat(document.getElementById('bend2').value)
-    };
+    const API_BASE = "https://sheetmetal-tool.onrender.com"; // Replace with your Render URL
 
-    const res = await fetch('https://sheetmetal-tool.onrender.com/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+    document.getElementById("cadForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById("submitBtn");
+        btn.innerText = "Generating CAD & PDF...";
+        btn.disabled = true;
+
+        const payload = {
+            length: parseFloat(document.getElementById("length").value),
+            width: parseFloat(document.getElementById("width").value),
+            height: parseFloat(document.getElementById("height").value),
+            thickness: parseFloat(document.getElementById("thickness").value),
+            bend1: parseFloat(document.getElementById("bend1").value),
+            bend2: parseFloat(document.getElementById("bend2").value)
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/api/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                document.getElementById("flatSizeText").innerText = data.blank_size;
+                document.getElementById("downloadBtn").href = `${API_BASE}/api/download/${data.job_id}`;
+                document.getElementById("resultBox").style.display = "block";
+            } else {
+                alert("Generation Error: " + data.detail);
+            }
+        } catch (err) {
+            alert("Connection Error. Is backend running?");
+        } finally {
+            btn.innerText = "Generate CAD & Blueprint";
+            btn.disabled = false;
+        }
     });
-
-    const result = await res.json();
-    document.getElementById('blank_size').innerText = result.blank_size;
-    document.getElementById('download_link').href = `https://sheetmetal-tool.onrender.com/api/download/${result.job_id}`;
-    document.getElementById('result').style.display = 'block';
-}
 </script>
 
 </body>
