@@ -1,10 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import zipfile
 import uuid
 import os
+import zipfile
 from geometry import generate_all_files
 
 app = FastAPI()
@@ -17,30 +17,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class InputData(BaseModel):
+class PodiumRequest(BaseModel):
     length: float
     width: float
     height: float
     thickness: float
-    bend1: float
-    bend2: float
+    bend1: float # Flange 1
+    bend2: float # Flange 2
 
 @app.post("/api/generate")
-def generate(data: InputData):
-    job_id = str(uuid.uuid4())[:8]
-    results = generate_all_files(
-        data.length, data.width, data.height, data.thickness, data.bend1, data.bend2, job_id
-    )
-    return {"job_id": job_id, "blank_size": results["blank_size"]}
+def generate_podium(data: PodiumRequest):
+    try:
+        job_id = str(uuid.uuid4())[:8]
+        result = generate_all_files(
+            length=data.length,
+            width=data.width,
+            height=data.height,
+            thickness=data.thickness,
+            bend1=data.bend1,
+            bend2=data.bend2,
+            job_id=job_id
+        )
+        return {"job_id": job_id, "blank_size": result["blank_size"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/download/{job_id}")
-def download(job_id: str):
+def download_package(job_id: str):
     folder = f"outputs/{job_id}"
-    zip_path = f"outputs/{job_id}_pack.zip"
+    zip_path = f"outputs/podium_{job_id}.zip"
+    
+    if not os.path.exists(folder):
+        raise HTTPException(status_code=404, detail="Job not found")
 
-    with zipfile.ZipFile(zip_path, 'w') as z:
+    with zipfile.ZipFile(zip_path, 'w') as zipf:
         for root, _, files in os.walk(folder):
-            for f in files:
-                z.write(os.path.join(root, f), arcname=f)
+            for file in files:
+                zipf.write(os.path.join(root, file), arcname=file)
 
-    return FileResponse(zip_path, filename=f"podium_sheet_metal_pack_{job_id}.zip")
+    return FileResponse(zip_path, media_type="application/zip", filename=f"podium_{job_id}.zip")
